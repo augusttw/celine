@@ -1,0 +1,10 @@
+name: celine-companion
+version: "1.5.0"
+description: "Continuidade relacional, proatividade opt-in e presença segura da Celine."
+author: "Celine project"
+provides_tools:
+  - celine_relationship
+  - celine_pulse
+  - celine_presence
+hooks:
+  - pre_llm_call

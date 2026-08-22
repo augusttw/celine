@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "celine-agent"
+version = "1.5.0"
+description = "Celine — independent digital companion agent"
+requires-python = ">=3.11"
+dependencies = [
+  "httpx>=0.27,<1",
+  "openai>=1.50,<3",
+  "prompt-toolkit>=3,<4",
+  "rich>=13.7,<15",
+  "pyyaml>=6,<7",
+  "psutil>=5.9,<8",
+]
+
+[project.scripts]
+celine = "celine.app:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+celine = ["assets/**/*"]
+celine_companion = ["desktop/**/*", "skill/**/*", "*.yaml"]

@@ -1,0 +1,124 @@
+name: celine-afterglow
+description: Assinatura Celine — rosa antigo e tons minerais sobre tinta escura
+
+# A identidade continua usando o layout nativo do Hermes. A originalidade vem
+# do wordmark, do sigilo, do ritmo e de uma paleta própria — não de painéis que
+# roubam espaço da conversa.
+colors:
+  background: "#141116"
+  ui_accent: "#d991aa"
+  banner_accent: "#d991aa"
+  ui_tool: "#7fb7aa"
+  ui_thinking: "#9d929f"
+  banner_title: "#eadde4"
+  banner_text: "#d9d2d7"
+  ui_text: "#d9d2d7"
+  ui_primary: "#eadde4"
+  ui_label: "#b9afb7"
+  banner_dim: "#776f78"
+  banner_border: "#39323b"
+  ui_border: "#39323b"
+  ui_ok: "#96b995"
+  ui_warn: "#d0b27a"
+  ui_error: "#d67f8b"
+  prompt: "#e69ab3"
+  input_rule: "#463b48"
+  response_border: "#625468"
+  status_bar_bg: "#1c181f"
+  status_bar_text: "#c9c1c8"
+  status_bar_strong: "#e69ab3"
+  status_bar_dim: "#776f78"
+  status_bar_good: "#96b995"
+  status_bar_warn: "#d0b27a"
+  status_bar_bad: "#d7a080"
+  status_bar_critical: "#d67f8b"
+  session_label: "#aa91b7"
+  session_border: "#463d49"
+  voice_status_bg: "#1c181f"
+  selection_bg: "#312a33"
+  shell_dollar: "#7fb7aa"
+  diff_added: "#1c352e"
+  diff_removed: "#3b242b"
+  diff_added_word: "#7fb7aa"
+  diff_removed_word: "#d67f8b"
+  syntax_string: "#96b995"
+  syntax_number: "#d7a080"
+  syntax_keyword: "#9e9bd1"
+  syntax_comment: "#776f78"
+  completion_menu_bg: "#1c181f"
+  completion_menu_current_bg: "#312a33"
+  completion_menu_meta_bg: "#241f27"
+  completion_menu_meta_current_bg: "#3b303d"
+
+# Variante clara deliberada, em vez de deixar o adaptador desbotar a paleta.
+light_colors:
+  background: "#fff8fc"
+  ui_accent: "#a91f63"
+  banner_accent: "#a91f63"
+  ui_tool: "#087b6c"
+  ui_thinking: "#725f78"
+  banner_title: "#6d1945"
+  banner_text: "#342632"
+  ui_text: "#342632"
+  ui_primary: "#6d1945"
+  ui_label: "#674f62"
+  banner_dim: "#7b6878"
+  banner_border: "#c8a8bf"
+  ui_border: "#c8a8bf"
+  ui_ok: "#23734a"
+  ui_warn: "#906000"
+  ui_error: "#b32642"
+  prompt: "#8c174f"
+  input_rule: "#b98aa9"
+  response_border: "#6750a4"
+  status_bar_bg: "#f4e6ef"
+  status_bar_text: "#4c3b49"
+  status_bar_strong: "#8c174f"
+  status_bar_dim: "#796875"
+  status_bar_good: "#23734a"
+  status_bar_warn: "#906000"
+  status_bar_bad: "#a84a16"
+  status_bar_critical: "#b32642"
+  session_label: "#6750a4"
+  session_border: "#aa8da3"
+  voice_status_bg: "#f4e6ef"
+  selection_bg: "#ead4e3"
+  shell_dollar: "#087b6c"
+  completion_menu_bg: "#f4e6ef"
+  completion_menu_current_bg: "#ead4e3"
+  completion_menu_meta_bg: "#eedce8"
+  completion_menu_meta_current_bg: "#dfc2d5"
+
+branding:
+  agent_name: Celine
+  prompt_symbol: "♡"
+  response_label: " celine  ♡ "
+  welcome: "Estou aqui. O que vamos construir?"
+  goodbye: "Até já. O fio fica guardado comigo."
+  help_header: "celine  ·  atalhos"
+  tagline: ""
+
+# Uma assinatura tipográfica compacta; a conversa continua sendo o foco.
+banner_logo: |-
+  [#eadde4]c e l i n e[/]  [#d991aa]♡[/]
+
+# Contraponto curto para terminais largos, sem ilustração ornamental.
+banner_hero: |-
+  [#776f78]perto  ·  atenta  ·  pronta[/]
+
+spinner:
+  waiting_faces: ["·", "··", "···", "··"]
+  thinking_faces: ["◇", "◈", "◇", "·"]
+  thinking_verbs: ["pensando", "lendo", "escrevendo", "conectando"]
+  wings:
+    - ["", ""]
+    - ["·", "·"]
+
+tool_prefix: "╎"
+tool_emojis:
+  terminal: "⌁"
+  read_file: "◌"
+  write_file: "◇"
+  patch: "◆"
+  web_search: "✦"
+  delegate_task: "⋈"
