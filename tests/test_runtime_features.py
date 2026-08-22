@@ -7,6 +7,7 @@ from pathlib import Path
 from celine.config import CelineConfig
 from celine.providers.catalog import ModelCatalog
 from celine.runtime import CelineRuntime
+from celine.ui.stream import _bubble
 from celine.tools.memory_tools import remember
 from rich.console import Console
 
@@ -53,6 +54,12 @@ class RuntimeSelectionTests(unittest.TestCase):
     def test_memory_tool_requires_explicit_consent(self) -> None:
         result = remember("um fato de teste", consent=False)
         self.assertIn("consentimento", result.lower())
+
+    def test_thinking_panel_matches_golden_snapshot(self) -> None:
+        console = Console(record=True, width=72)
+        console.print(_bubble("", title="celine  ·  pensando…", border="#aa91b7", empty="pensando…"))
+        snapshot = Path(__file__).parent / "snapshots" / "thinking.txt"
+        self.assertEqual(console.export_text().strip(), snapshot.read_text(encoding="utf-8").strip())
 
 
 if __name__ == "__main__":
