@@ -2,6 +2,11 @@
 
 <div align="center">
 
+[![Release](https://img.shields.io/github/v/release/augusttw/celine?color=brightgreen&label=release)](https://github.com/augusttw/celine/releases)
+[![Python](https://img.shields.io/badge/python-3.11+-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Evaluations](https://img.shields.io/badge/evaluations-15%2F15%20passed-success.svg)](file:///home/zyltr4x/coding/Celine/src/celine/evaluation.py)
+
 **An autonomous, local-first digital agent runtime engineered for secure execution, multi-provider LLM orchestration, and stateful memory.**
 
 [Português](README.pt-BR.md) | **English**
@@ -38,9 +43,9 @@ By strictly decoupling code from runtime state, personal context and secrets are
 - 🛡️ **Zero-Leak Local State**: All runtime state, sessions, interaction logs, and credentials reside strictly in `~/.celine/` (or `$CELINE_HOME`) with restricted filesystem permissions (`0600` for auth files).
 - 🖥️ **Native Terminal UI**: Built on `prompt-toolkit` and `rich`, featuring real-time token streaming, active thinking state indicators, duration metrics, and smooth command dispatching.
 - 🔌 **Provider-Agnostic Engine**: Seamlessly switch between NVIDIA NIM, OpenAI, OpenRouter, DeepSeek, Qwen/DashScope, Groq, local Ollama endpoints, or custom OpenAI-compatible providers.
-- ⚙️ **Extensible Tool Registry**: Built-in native capabilities for filesystem operations, terminal command execution, Git status/diff analysis, web fetching, and memory indexing.
+- ⚙️ **Extensible Tool Registry**: Built-in native capabilities for filesystem operations, terminal command execution, Git status/diff analysis, web fetching, memory indexing, and companion interactions.
 - 🧠 **Canonical Stateful Memory**: Sessions and consented long-term memory share `~/.celine/state.db`; relationship continuity remains an audited, purpose-specific journal.
-- ✅ **One-Shot Approvals**: Sensitive effects return an exact token. Review with `/approvals`, authorize with `/approve TOKEN`, then `/retry`; secrets are never exposed to the model.
+- ✅ **One-Shot Approvals**: Sensitive effects return an exact token. Review with `/approvals`, authorize with `/approve TOKEN`, then `/retry`; secrets and credential files are never exposed to the model.
 - 🩺 **Diagnostic & Evaluation Suite**: Native utilities (`celine doctor`, `celine evaluate`, `celine status`) to verify system health, runtime assets, and behavioral contracts.
 
 ---
@@ -139,9 +144,10 @@ Inside the interactive terminal interface, control runtime behavior using slash 
 
 | Command | Description |
 | :--- | :--- |
+| `/status` | Display current provider, model, and active session ID |
 | `/model` | Refresh catalog and list all available models |
 | `/model refresh` | Force remote model list retrieval from active provider |
-| `/model <id>` | Switch and persist active model (e.g., `/model meta/llama-3.1-70b-instruct`) |
+| `/model <id>` | Switch and persist active model (e.g., `/model nvidia/nemotron-3.5-lightning-30b-a3b`) |
 | `/provider list` | Display available LLM providers |
 | `/provider <name>` | Switch active provider (e.g., `/provider nvidia-nim`) |
 | `/session list` | List historical conversation sessions |
@@ -154,6 +160,7 @@ Inside the interactive terminal interface, control runtime behavior using slash 
 | `/approve <token>` | Authorize exactly one pending effect; use `/retry` afterward |
 | `/retry` | Re-execute the previous turn with current configuration |
 | `/clear` | Clear screen and redraw interface |
+| `/help` | Show quick help and command shortcuts |
 | `/exit` | Terminate session and exit runtime |
 
 ---
@@ -167,7 +174,7 @@ celine install [--options]    # Initialize/update ~/.celine profile
 celine doctor                 # Diagnose profile, assets, and provider endpoints
 celine evaluate [--live]      # Execute behavioral contracts and test assertions
 celine presence status        # Inspect desktop presence and background states
-celine presence notify ...    # Send system notification
+celine presence notify ...    # Send explicit system notification
 celine home                   # Print resolved isolated profile path
 celine status                 # Print JSON status of provider, model, and session
 ```
@@ -184,16 +191,24 @@ celine/
 │   │   ├── config.py           # Configuration schema and profile management
 │   │   ├── runtime.py          # Interactive loop and headless execution
 │   │   ├── evaluation.py       # Behavioral evaluation and assertions
+│   │   ├── legacy_sessions.py  # Idempotent migration of legacy sessions
 │   │   ├── profile.py          # Profile installer and doctor diagnostics
-│   │   ├── skill_isolation.py  # Sandboxing and skill isolation logic
-│   │   ├── core/               # Agent loop, context ranking, memory, and sessions
-│   │   ├── providers/          # LLM providers, auth validation, and model catalogs
-│   │   ├── tools/              # Native tool implementations (files, shell, web, git)
-│   │   ├── ui/                 # Rich/prompt-toolkit rendering, banners, and streaming
-│   │   └── assets/             # Core system prompts, skins, and widgets
-│   └── celine_companion/       # Desktop presence and notification hooks
-├── tests/                      # Automated test suite and visual snapshots
-└── ~/.celine/                  # Isolated local runtime state (never committed)
+│   │   ├── skill_isolation.py  # Skill sandboxing and isolation logic
+│   │   ├── core/               # Agent loop, approvals broker, memory, and sessions
+│   │   │   ├── agent.py        # Core agent turn loop & token streaming
+│   │   │   ├── approvals.py    # One-shot approvals & policy validation
+│   │   │   ├── context.py      # Context window ranking & message compaction
+│   │   │   ├── memory.py       # Semantic/keyword SQLite memory store
+│   │   │   ├── persona.py      # Persona & system prompt builder
+│   │   │   └── session.py      # Canonical SQLite state & session storage
+│   │   ├── providers/          # Multi-provider router, auth resolver, and OpenAI client
+│   │   ├── tools/              # Native tool registry (files, terminal, system, memory, companion)
+│   │   ├── ui/                 # Rich/prompt-toolkit TUI, banners, styling, and streaming
+│   │   ├── voice/              # Optional text-to-speech and voice feedback
+│   │   └── assets/             # SOUL.md system prompt, skins, and TUI widgets
+│   └── celine_companion/       # Desktop presence, relationship journal, and pulse contracts
+├── tests/                      # Automated test suite and runtime assertions
+└── ~/.celine/                  # Isolated local runtime state (state.db, config.yaml, auth.json)
 ```
 
 ---
@@ -241,3 +256,4 @@ Updating source code leaves `~/.celine/` untouched, preserving existing sessions
 ## License & Contribution
 
 Contributions and improvements are welcome. Please ensure new features include relevant unit tests and pass `celine doctor` and `celine evaluate` before opening a pull request.
+
