@@ -69,7 +69,11 @@ def _run_evaluate(args: list[str]) -> int:
     installer = ProfileInstaller()
     installer.ensure_installed()
     evaluator = BehaviorEvaluator(installer.home)
-    report = evaluator.live() if ns.live else evaluator.static()
+    report = (
+        evaluator.live(progress=lambda line: print(f"  {line}", flush=True))
+        if ns.live
+        else evaluator.static()
+    )
     json_path, md_path = evaluator.save(report)
     print(render_report(report))
     print(f"Relatórios: {json_path} · {md_path}")

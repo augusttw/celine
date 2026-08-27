@@ -3,16 +3,19 @@ from __future__ import annotations
 import re
 import sqlite3
 import threading
+import os
+import tempfile
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Iterator
 
 from celine.config import CELINE_HOME, assert_celine_boundary
 
 MEMORIES_DIR = CELINE_HOME / "memories"
 USER_MD_PATH = MEMORIES_DIR / "USER.md"
 MEMORY_MD_PATH = MEMORIES_DIR / "MEMORY.md"
-DB_PATH = CELINE_HOME / "celine.db"
+DB_PATH = CELINE_HOME / "state.db"
 _MEMORY_LOCK = threading.RLock()
 _SECRET_PATTERNS = (
     re.compile(r"(?i)(?:api[_ -]?key|access[_ -]?token|refresh[_ -]?token|password|senha|secret|credential|authorization)\s*[:=]\s*\S+"),
@@ -33,6 +36,36 @@ def _validate_memory_text(value: str, *, field: str = "memória") -> str:
     return clean
 
 
+@contextmanager
+def _connect() -> Iterator[sqlite3.Connection]:
+    db = sqlite3.connect(DB_PATH, timeout=15)
+    try:
+        db.execute("PRAGMA busy_timeout = 15000")
+        yield db
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+    finally:
+        db.close()
+
+
+def _atomic_private_text(path: Path, content: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, raw = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    temporary = Path(raw)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as handle:
+            handle.write(content)
+            handle.flush()
+            os.fsync(handle.fileno())
+        if os.name == "posix":
+            temporary.chmod(0o600)
+        os.replace(temporary, path)
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
 class MemoryManager:
     def __init__(self) -> None:
         self._ensure_storage()
@@ -42,7 +75,7 @@ class MemoryManager:
         CELINE_HOME.mkdir(parents=True, exist_ok=True)
         MEMORIES_DIR.mkdir(parents=True, exist_ok=True)
 
-        with sqlite3.connect(DB_PATH) as db:
+        with _connect() as db:
             db.execute(
                 """
                 CREATE TABLE IF NOT EXISTS memories (
@@ -71,31 +104,25 @@ class MemoryManager:
                 )
                 """
             )
-            db.commit()
 
         # Seed USER.md if missing.
         if not USER_MD_PATH.exists():
-            default_user = (
-                "Ambiente: Artix Linux (dinit) + Sway (Wayland). Kernel: linux-hardened.\n"
-                "Preferências: Go, C, Shell script, soluções diretas, código limpo e seguro.\n"
-            )
-            USER_MD_PATH.write_text(default_user, encoding="utf-8")
+            _atomic_private_text(USER_MD_PATH, "# User profile\n\nNo saved preferences yet.\n")
 
         # Seed MEMORY.md if missing
         if not MEMORY_MD_PATH.exists():
-            MEMORY_MD_PATH.write_text("# Memórias da Celine\n\n", encoding="utf-8")
+            _atomic_private_text(MEMORY_MD_PATH, "# Celine memories\n\n")
 
     def add_memory(self, content: str, category: str = "general") -> bool:
         content = _validate_memory_text(content)
         category = _validate_memory_text(category, field="categoria")[:80]
 
-        with _MEMORY_LOCK, sqlite3.connect(DB_PATH) as db:
+        with _MEMORY_LOCK, _connect() as db:
             try:
                 db.execute(
                     "INSERT INTO memories(category, content, created_at) VALUES (?, ?, ?)",
                     (category, content, datetime.now().isoformat()),
                 )
-                db.commit()
             except sqlite3.IntegrityError:
                 # Already exists
                 pass
@@ -105,7 +132,7 @@ class MemoryManager:
         return True
 
     def get_memories(self, limit: int = 30) -> list[str]:
-        with sqlite3.connect(DB_PATH) as db:
+        with _connect() as db:
             cur = db.execute("SELECT content FROM memories ORDER BY id DESC LIMIT ?", (limit,))
             rows = [r[0] for r in cur.fetchall()]
         return rows
@@ -116,7 +143,7 @@ class MemoryManager:
             return self.get_memories(limit=limit)
 
         terms = [t for t in clean_query.split() if len(t) > 1]
-        with _MEMORY_LOCK, sqlite3.connect(DB_PATH) as db:
+        with _MEMORY_LOCK, _connect() as db:
             # 1. Direct match
             cur = db.execute(
                 "SELECT content FROM memories WHERE content LIKE ? ORDER BY id DESC LIMIT ?",
@@ -154,10 +181,9 @@ class MemoryManager:
         return []
 
     def delete_memory(self, query: str) -> int:
-        with sqlite3.connect(DB_PATH) as db:
+        with _MEMORY_LOCK, _connect() as db:
             cur = db.execute("DELETE FROM memories WHERE content LIKE ?", (f"%{query}%",))
             deleted = cur.rowcount
-            db.commit()
         self._sync_to_memory_md()
         return deleted
 
@@ -169,7 +195,7 @@ class MemoryManager:
     def update_user_profile(self, text: str) -> None:
         clean = _validate_memory_text(text, field="perfil")
         with _MEMORY_LOCK:
-            USER_MD_PATH.write_text(clean + "\n", encoding="utf-8")
+            _atomic_private_text(USER_MD_PATH, clean + "\n")
 
     def append_to_user_profile(self, fact: str) -> None:
         fact_clean = _validate_memory_text(fact, field="fato")
@@ -180,11 +206,11 @@ class MemoryManager:
 
     def _sync_to_memory_md(self) -> None:
         memories = self.get_memories(100)
-        lines = ["# Memórias da Celine\n"]
+        lines = ["# Celine memories\n"]
         for m in reversed(memories):
             lines.append(f"- {m}")
         lines.append("")
-        MEMORY_MD_PATH.write_text("\n".join(lines), encoding="utf-8")
+        _atomic_private_text(MEMORY_MD_PATH, "\n".join(lines))
 
 
 memory_manager = MemoryManager()

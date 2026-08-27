@@ -39,7 +39,8 @@ Ao separar de forma estrita o código-fonte do estado de execução, contextos e
 - 🖥️ **TUI Nativa e Moderna**: Construída com `prompt-toolkit` e `rich`, oferecendo streaming de tokens em tempo real, painel de raciocínio (*thinking*), métricas de latência e controle intuitivo de comandos.
 - 🔌 **Agnóstico a Provedores de LLM**: Alterne facilmente entre NVIDIA NIM, OpenAI, OpenRouter, DeepSeek, Qwen/DashScope, Groq, instâncias locais via Ollama ou qualquer endpoint compatível com a API OpenAI.
 - ⚙️ **Engine de Execução de Ferramentas**: Capacidades nativas para manipulação de arquivos, execução de comandos de terminal, análise de diffs/status do Git, consultas web e indexação de memória.
-- 🧠 **Arquitetura de Contexto e Memória**: Armazenamento estruturado de memória baseado em consentimento explícito, busca semântica entre sessões, compactação automática de contexto e bloqueio estrito contra vazamento de segredos.
+- 🧠 **Estado Canônico e Memória**: Sessões e memórias consentidas compartilham `~/.celine/state.db`; a continuidade relacional permanece em um journal específico e auditável.
+- ✅ **Approvals One-Shot**: Efeitos sensíveis retornam um token exato. Revise com `/approvals`, autorize com `/approve TOKEN` e use `/retry`; segredos nunca são expostos ao modelo.
 - 🩺 **Diagnóstico e Avaliação Automatizados**: Comandos nativos (`celine doctor`, `celine evaluate`, `celine status`) para verificação contínua da integridade do sistema, assets e contratos comportamentais.
 
 ---
@@ -149,6 +150,8 @@ Durante a sessão interativa no terminal, utilize os comandos com barra (`/`) pa
 | `/memory list` | Exibe as memórias de longo prazo armazenadas |
 | `/memory search <termo>` | Realiza busca semântica/textual na base de memória |
 | `/memory add <texto>` | Registra explicitamente uma informação na memória persistente |
+| `/approvals` | Lista efeitos sensíveis aguardando autorização |
+| `/approve <token>` | Autoriza exatamente um efeito pendente; use `/retry` depois |
 | `/retry` | Repete a execução do último turno com as configurações vigentes |
 | `/clear` | Limpa a tela e redesenha a interface |
 | `/exit` | Encerra a sessão e finaliza o runtime |

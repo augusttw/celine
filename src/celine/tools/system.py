@@ -11,6 +11,7 @@ from pathlib import Path
 import psutil
 
 from celine.tools.registry import tool
+from celine.core.approvals import approval_manager, approval_payload
 
 
 def _get_notification_env() -> dict[str, str] | None:
@@ -45,6 +46,14 @@ def desktop_notify(title: str = "Celine", message: str = "", urgency: str = "nor
 
     if not clean_message:
         return "Erro: mensagem de notificação não pode ser vazia."
+
+    blocked = approval_manager.authorize(
+        "desktop_notification",
+        approval_payload("desktop_notification", {"title": clean_title, "message": clean_message, "urgency": urgency}),
+        "a desktop notification is a visible external effect",
+    )
+    if blocked:
+        return blocked
 
     binary = shutil.which("notify-send")
     if not binary:

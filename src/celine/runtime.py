@@ -21,6 +21,7 @@ from celine.config import (
     assert_celine_boundary,
 )
 from celine.core.agent import CelineAgent
+from celine.core.approvals import approval_manager
 from celine.ui.banner import render_banner, render_welcome_tips
 from celine.ui.prompt import create_prompt_session, get_prompt_text
 from celine.ui.stream import stream_agent_events
@@ -283,6 +284,25 @@ class CelineRuntime:
         if command == "/memory":
             self._handle_memory(argument)
             return True
+        if command == "/approvals":
+            pending = approval_manager.pending()
+            if not pending:
+                self.console.print("[dim]no pending approvals[/]")
+            for item in pending:
+                self.console.print(f"[yellow]{item.token}[/] · {item.effect} · {item.reason}")
+            return True
+        if command == "/approve":
+            if not argument:
+                self.console.print("[yellow]usage: /approve TOKEN[/]")
+                return True
+            pending = approval_manager.approve(argument)
+            if pending:
+                self.console.print(
+                    f"[green]approved once:[/] {pending.token} · run [bold]/retry[/] to continue"
+                )
+            else:
+                self.console.print(f"[red]unknown or expired approval token:[/] {argument}")
+            return True
         return False
 
     def run_once(self, prompt: str, *, plain: bool = True) -> str:
@@ -340,7 +360,7 @@ class CelineRuntime:
             if prompt.startswith("/provider") or prompt.startswith("/model"):
                 self._handle_command(prompt)
                 continue
-            if prompt.startswith("/session") or prompt.startswith("/memory"):
+            if prompt.startswith(("/session", "/memory", "/approve", "/approvals")):
                 self._handle_command(prompt)
                 continue
             try:

@@ -6,6 +6,12 @@ from pathlib import Path
 from typing import Any
 
 from celine.tools.registry import tool
+from celine.core.approvals import (
+    approval_manager,
+    approval_payload,
+    path_approval_reason,
+    sensitive_path_reason,
+)
 
 
 def _resolve_path(raw: str) -> Path:
@@ -28,6 +34,9 @@ def read_file(path: str, start_line: int = 1, end_line: int = 500) -> str:
         end_line: Linha final (1-indexed).
     """
     file_path = _resolve_path(path)
+    sensitive = sensitive_path_reason(file_path)
+    if sensitive:
+        return f"Blocked: {sensitive}."
     if not file_path.exists():
         return f"Arquivo não encontrado: {file_path}"
     if not file_path.is_file():
@@ -68,6 +77,16 @@ def write_file(path: str, content: str, overwrite: bool = True) -> str:
         overwrite: Se True, sobrescreve arquivo existente.
     """
     file_path = _resolve_path(path)
+    sensitive = sensitive_path_reason(file_path)
+    if sensitive:
+        return f"Blocked: {sensitive}."
+    reason = path_approval_reason(file_path)
+    if reason:
+        blocked = approval_manager.authorize(
+            "write_file", approval_payload("write_file", {"path": str(file_path), "content": content}), reason
+        )
+        if blocked:
+            return blocked
     if file_path.exists() and not overwrite:
         return f"Arquivo já existe e overwrite=False: {file_path}"
 
@@ -92,6 +111,18 @@ def edit_file(path: str, target: str, replacement: str) -> str:
         replacement: Novo texto de substituição.
     """
     file_path = _resolve_path(path)
+    sensitive = sensitive_path_reason(file_path)
+    if sensitive:
+        return f"Blocked: {sensitive}."
+    reason = path_approval_reason(file_path)
+    if reason:
+        blocked = approval_manager.authorize(
+            "edit_file",
+            approval_payload("edit_file", {"path": str(file_path), "target": target, "replacement": replacement}),
+            reason,
+        )
+        if blocked:
+            return blocked
     if not file_path.exists():
         return f"Arquivo não encontrado: {file_path}"
 
@@ -138,6 +169,8 @@ def list_dir(path: str = ".", max_depth: int = 2) -> str:
             for entry in entries:
                 if entry.name.startswith(".") and entry.name in {".git", ".venv", "__pycache__", ".pytest_cache"}:
                     continue
+                if sensitive_path_reason(entry):
+                    continue
                 rel = entry.relative_to(dir_path)
                 if entry.is_dir():
                     results.append(f"📁 {rel}/")
@@ -179,6 +212,8 @@ def find_files(pattern: str, path: str = ".") -> str:
         for p in root.glob(pattern):
             if any(part.startswith(".") and part in {".git", ".venv", "__pycache__"} for part in p.parts):
                 continue
+            if sensitive_path_reason(p):
+                continue
             rel = p.relative_to(root)
             matches.append(str(rel) + ("/" if p.is_dir() else ""))
             if len(matches) >= 100:
@@ -218,6 +253,8 @@ def grep_search(query: str, path: str = ".", is_regex: bool = False, max_results
         dirnames[:] = [d for d in dirnames if d not in {".git", ".venv", "__pycache__", "node_modules", ".pytest_cache"}]
         for fname in filenames:
             fpath = Path(dirpath) / fname
+            if sensitive_path_reason(fpath):
+                continue
             try:
                 text = fpath.read_text(encoding="utf-8", errors="ignore")
                 for line_idx, line in enumerate(text.splitlines(), start=1):
@@ -299,4 +336,3 @@ def git_status_and_diff(path: str = ".", max_diff_lines: int = 150) -> str:
         return "\n".join(output)
     except Exception as exc:
         return f"Erro ao inspecionar git: {exc}"
-

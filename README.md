@@ -39,7 +39,8 @@ By strictly decoupling code from runtime state, personal context and secrets are
 - 🖥️ **Native Terminal UI**: Built on `prompt-toolkit` and `rich`, featuring real-time token streaming, active thinking state indicators, duration metrics, and smooth command dispatching.
 - 🔌 **Provider-Agnostic Engine**: Seamlessly switch between NVIDIA NIM, OpenAI, OpenRouter, DeepSeek, Qwen/DashScope, Groq, local Ollama endpoints, or custom OpenAI-compatible providers.
 - ⚙️ **Extensible Tool Registry**: Built-in native capabilities for filesystem operations, terminal command execution, Git status/diff analysis, web fetching, and memory indexing.
-- 🧠 **Context & Long-Term Memory**: Structured memory storage with explicit consent validation, cross-session search, automatic context ranking/compaction, and secret-leak rejection.
+- 🧠 **Canonical Stateful Memory**: Sessions and consented long-term memory share `~/.celine/state.db`; relationship continuity remains an audited, purpose-specific journal.
+- ✅ **One-Shot Approvals**: Sensitive effects return an exact token. Review with `/approvals`, authorize with `/approve TOKEN`, then `/retry`; secrets are never exposed to the model.
 - 🩺 **Diagnostic & Evaluation Suite**: Native utilities (`celine doctor`, `celine evaluate`, `celine status`) to verify system health, runtime assets, and behavioral contracts.
 
 ---
@@ -149,6 +150,8 @@ Inside the interactive terminal interface, control runtime behavior using slash 
 | `/memory list` | Display persisted long-term memory entries |
 | `/memory search <query>` | Query the semantic/keyword memory index |
 | `/memory add <text>` | Explicitly record an entry into long-term memory |
+| `/approvals` | List sensitive effects waiting for authorization |
+| `/approve <token>` | Authorize exactly one pending effect; use `/retry` afterward |
 | `/retry` | Re-execute the previous turn with current configuration |
 | `/clear` | Clear screen and redraw interface |
 | `/exit` | Terminate session and exit runtime |

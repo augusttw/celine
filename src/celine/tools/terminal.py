@@ -5,6 +5,12 @@ import subprocess
 from pathlib import Path
 
 from celine.tools.registry import tool
+from celine.core.approvals import (
+    approval_manager,
+    approval_payload,
+    command_approval_reason,
+    command_sensitive_reason,
+)
 
 MAX_OUTPUT_CHARS = 30000
 MAX_OUTPUT_LINES = 800
@@ -23,6 +29,16 @@ def bash(command: str, timeout: int = 120) -> str:
     """
     if not command.strip():
         return "Comando vazio."
+
+    sensitive = command_sensitive_reason(command)
+    if sensitive:
+        return f"Blocked: {sensitive}. Inspect only metadata or credential names, never secret values."
+
+    reason = command_approval_reason(command)
+    if reason:
+        blocked = approval_manager.authorize("shell", approval_payload("shell", command), reason)
+        if blocked:
+            return blocked
 
     cwd = os.getcwd()
 

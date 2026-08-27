@@ -30,6 +30,8 @@ SLASH_COMMANDS = [
     "/memory list",
     "/memory add",
     "/memory clear",
+    "/approvals",
+    "/approve",
     "/profile",
     "/soul",
     "/soul view",

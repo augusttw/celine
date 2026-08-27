@@ -34,7 +34,7 @@ def remember(fact: str, category: str = "general", consent: bool = False) -> str
     name="forget",
     description="Remove ou esquece uma memória que foi modificada, cancelada ou que o usuário pediu para esquecer.",
 )
-def forget(query: str) -> str:
+def forget(query: str, consent: bool = False) -> str:
     """Remove memórias correspondentes ao termo de busca.
 
     Args:
@@ -42,6 +42,8 @@ def forget(query: str) -> str:
     """
     if not query.strip():
         return "Consulta vazia para esquecimento."
+    if not consent:
+        return "Sem consentimento explícito: confirme qual memória o usuário quer remover."
 
     count = memory_manager.delete_memory(query.strip())
     if count > 0:

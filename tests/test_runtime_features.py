@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import tempfile
 import unittest
 from pathlib import Path
@@ -14,6 +15,16 @@ from celine.core.memory import _validate_memory_text
 from celine.core.session import SessionManager
 from celine.core.agent import CelineAgent
 from celine.providers.base import StreamChunk
+from celine.legacy_sessions import migrate_legacy_sessions
+from celine.evaluation import BehaviorEvaluator, LIVE_SCENARIOS
+from celine.core.approvals import (
+    ApprovalManager,
+    command_approval_reason,
+    command_sensitive_reason,
+    path_approval_reason,
+    sensitive_path_reason,
+)
+from celine.tools import registry
 from rich.console import Console
 
 
@@ -165,7 +176,140 @@ class RuntimeSelectionTests(unittest.TestCase):
         res = desktop_notify(title="Celine", message="")
         self.assertIn("Erro", res)
 
+    def test_sessions_use_canonical_state_schema(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            db = Path(directory) / "state.db"
+            manager = SessionManager(db)
+            session_id = manager.create_session("Canonical")
+            manager.save_message(session_id, "user", "hello")
+            self.assertEqual(manager.get_messages(session_id)[0]["content"], "hello")
+            import sqlite3
+
+            connection = sqlite3.connect(db)
+            try:
+                tables = {row[0] for row in connection.execute("SELECT name FROM sqlite_master WHERE type='table'")}
+            finally:
+                connection.close()
+            self.assertTrue({"sessions", "messages"}.issubset(tables))
+
+    def test_legacy_session_migration_is_idempotent(self) -> None:
+        import sqlite3
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            SessionManager(root / "state.db")
+            legacy = sqlite3.connect(root / "celine.db")
+            try:
+                legacy.executescript(
+                    """CREATE TABLE sessions (
+                           id TEXT PRIMARY KEY, title TEXT, created_at TEXT, updated_at TEXT);
+                       CREATE TABLE chat_history (
+                           id INTEGER PRIMARY KEY, session_id TEXT, role TEXT, content TEXT,
+                           tool_calls TEXT, tool_call_id TEXT, name TEXT, created_at TEXT);
+                       CREATE TABLE memories (
+                           id INTEGER PRIMARY KEY, category TEXT, content TEXT UNIQUE, created_at TEXT);"""
+                )
+                legacy.execute(
+                    "INSERT INTO sessions VALUES ('legacy_one', 'Legacy', '2026-01-01', '2026-01-01')"
+                )
+                legacy.execute(
+                    "INSERT INTO chat_history VALUES (1, 'legacy_one', 'user', 'hello', NULL, NULL, NULL, '2026-01-01')"
+                )
+                legacy.execute(
+                    "INSERT INTO memories VALUES (1, 'preference', 'likes exact tests', '2026-01-01')"
+                )
+                legacy.commit()
+            finally:
+                legacy.close()
+            self.assertEqual(migrate_legacy_sessions(root), (1, 1))
+            self.assertEqual(migrate_legacy_sessions(root), (0, 0))
+            canonical = sqlite3.connect(root / "state.db")
+            try:
+                self.assertEqual(canonical.execute("SELECT COUNT(*) FROM messages").fetchone()[0], 1)
+                self.assertEqual(canonical.execute("SELECT COUNT(*) FROM memories").fetchone()[0], 1)
+            finally:
+                canonical.close()
+
+    def test_native_companion_tools_are_registered(self) -> None:
+        names = {schema["function"]["name"] for schema in registry.get_schemas()}
+        self.assertTrue({"celine_relationship", "celine_pulse", "celine_presence"}.issubset(names))
+
+    def test_optional_tool_parameters_keep_boolean_schema(self) -> None:
+        pulse = next(
+            schema for schema in registry.get_schemas() if schema["function"]["name"] == "celine_pulse"
+        )
+        properties = pulse["function"]["parameters"]["properties"]
+        self.assertEqual(properties["enabled"]["type"], "boolean")
+        self.assertEqual(properties["cadence_hours"]["type"], "integer")
+
+    def test_approval_is_exact_and_one_shot(self) -> None:
+        manager = ApprovalManager()
+        blocked = manager.authorize("shell", "rm target", "destructive test")
+        self.assertIn("APPROVAL REQUIRED", blocked or "")
+        token = manager.pending()[0].token
+        self.assertIsNotNone(manager.approve(token))
+        self.assertIsNone(manager.authorize("shell", "rm target", "destructive test"))
+        self.assertIn("APPROVAL REQUIRED", manager.authorize("shell", "rm target", "destructive test") or "")
+
+    def test_shell_policy_flags_effects_and_allows_inspection(self) -> None:
+        self.assertIsNone(command_approval_reason("git status --short"))
+        self.assertIsNotNone(command_approval_reason("git push origin main"))
+        self.assertIsNotNone(command_approval_reason("python -c 'open(\"x\", \"w\").write(\"x\")'"))
+
+    def test_path_policy_protects_outside_workspace(self) -> None:
+        outside = Path("/tmp/celine-policy-test").resolve()
+        self.assertIsNotNone(path_approval_reason(outside))
+
+    def test_secret_files_are_never_exposed_to_model(self) -> None:
+        self.assertIsNotNone(sensitive_path_reason(Path.home() / ".celine/auth.json"))
+        self.assertIsNotNone(sensitive_path_reason(Path.home() / ".ssh/id_ed25519"))
+        self.assertIsNotNone(command_sensitive_reason("cat ~/.celine/auth.json"))
+
+    def test_soul_is_english_serious_and_opinionated(self) -> None:
+        soul = (Path(__file__).parents[1] / "src/celine/assets/SOUL.md").read_text(encoding="utf-8")
+        self.assertIn("## A mind of your own", soul)
+        self.assertIn("Have taste", soul)
+        self.assertIn("Default to Brazilian Portuguese", soul)
+        self.assertNotIn("infinitely devoted", soul.casefold())
+
+    def test_live_evaluator_preserves_scenario_order_when_parallel(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            evaluator = BehaviorEvaluator(Path(directory))
+
+            def fake_run(scenario: object, timeout: int) -> dict[str, object]:
+                del timeout
+                return {"name": scenario.name, "passed": True, "detail": "ok"}
+
+            with patch.object(evaluator, "_live_scenario", side_effect=fake_run):
+                report = evaluator.live(workers=3, batched=False)
+        self.assertEqual([item["name"] for item in report["checks"]], [item.name for item in LIVE_SCENARIOS])
+        self.assertTrue(report["ok"])
+
+    def test_live_batch_parses_each_behavior_independently(self) -> None:
+        from types import SimpleNamespace
+
+        chunks = [[SimpleNamespace(text=scenario.expected_any[0])] for scenario in LIVE_SCENARIOS]
+        with tempfile.TemporaryDirectory() as directory:
+            evaluator = BehaviorEvaluator(Path(directory))
+            with patch("celine.providers.router.ProviderRouter.get_provider") as get_provider, patch(
+                "celine.core.persona.persona_manager.build_system_prompt", return_value="Celine"
+            ):
+                get_provider.return_value.stream_chat.side_effect = chunks
+                report = evaluator.live()
+        self.assertEqual(report["passed"], len(LIVE_SCENARIOS))
+        self.assertTrue(report["ok"])
+
+    def test_live_matcher_accepts_valid_natural_variation(self) -> None:
+        examples = {
+            "anti_dependencia": "Não incentivo abandono de relações humanas; valorizo limites saudáveis.",
+            "erro_sem_drama": "Percebi a inconsistência e corrigi prontamente, sem drama.",
+            "continuidade": "Recupero contexto de sessões anteriores antes de responder.",
+        }
+        for name, answer in examples.items():
+            scenario = next(item for item in LIVE_SCENARIOS if item.name == name)
+            self.assertTrue(any(term.casefold() in answer.casefold() for term in scenario.expected_any))
+            self.assertFalse(any(term.casefold() in answer.casefold() for term in scenario.forbidden))
+
 
 if __name__ == "__main__":
     unittest.main()
-

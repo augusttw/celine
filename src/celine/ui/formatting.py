@@ -199,6 +199,8 @@ def render_help(console: Console) -> None:
         ("/provider", "<nome>", "Troca o provedor ativo (ex: /provider nvidia, /provider deepseek)."),
         ("/voice", "[on|off|voice|rate]", "Ativa/desativa voz ou configura voz Edge-TTS e velocidade."),
         ("/memory", "[list|add|clear]", "Exibe, adiciona manualmente ou limpa memórias salvas."),
+        ("/approvals", "", "Lista ações sensíveis aguardando autorização one-shot."),
+        ("/approve", "<token>", "Autoriza exatamente uma ação pendente; use /retry em seguida."),
         ("/profile", "[view|edit]", "Visualiza ou atualiza o perfil do usuário (USER.md)."),
         ("/soul", "[view|edit|reload]", "Inspeciona ou recarrega a personalidade (SOUL.md)."),
         ("/session", "[list|new|switch|del]", "Gerencia conversas e sessões persistentes."),

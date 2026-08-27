@@ -384,9 +384,9 @@ class ProfileInstaller:
                     f"{skill_files} arquivos de skills isolados em ~/.celine ({skill_replacements} caminhos corrigidos)"
                 )
             sessions_added, messages_added = migrate_legacy_sessions(self.home)
-            if sessions_added:
+            if sessions_added or messages_added:
                 report.items.append(
-                    f"{sessions_added} sessão antiga integrada ao state.db ({messages_added} mensagens)"
+                    f"legacy state synchronized into state.db: {sessions_added} session(s), {messages_added} message(s)"
                 )
             for private_file in (
                 self.home / "config.yaml",
@@ -464,7 +464,24 @@ class ProfileInstaller:
             report.warnings.append(f"config divergente — {mismatch}")
         try:
             from celine.config import CelineConfig
+            from celine.core.memory import DB_PATH as MEMORY_DB_PATH
+            from celine.core.session import DB_PATH as SESSION_DB_PATH
             from celine.providers.catalog import ModelCatalog
+            from celine.tools import registry
+
+            canonical = (self.home / "state.db").resolve()
+            if SESSION_DB_PATH.resolve() != canonical or MEMORY_DB_PATH.resolve() != canonical:
+                report.ok = False
+                report.warnings.append("runtime session/memory storage is not unified on state.db")
+            else:
+                report.items.append("canonical state: sessions and memory use state.db")
+            registered = {schema["function"]["name"] for schema in registry.get_schemas()}
+            companion = {"celine_relationship", "celine_pulse", "celine_presence"}
+            if not companion.issubset(registered):
+                report.ok = False
+                report.warnings.append("native companion tools are not fully registered")
+            else:
+                report.items.append("native companion tools registered: relationship, pulse, presence")
 
             runtime_config = CelineConfig.load()
             probe_ok, model_count, probe_detail = ModelCatalog(self.home).probe(

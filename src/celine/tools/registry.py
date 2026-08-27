@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import inspect
 import json
+import types
 from dataclasses import dataclass
-from typing import Any, Callable, get_type_hints
+from typing import Any, Callable, Union, get_args, get_origin, get_type_hints
 
 
 @dataclass
@@ -33,19 +34,28 @@ class ToolRegistry:
                 continue
 
             param_type = type_hints.get(param_name, str)
+            origin = get_origin(param_type)
+            args = get_args(param_type)
+            if origin in {types.UnionType, Union}:
+                non_none = [item for item in args if item is not type(None)]
+                param_type = non_none[0] if len(non_none) == 1 else str
+                origin = get_origin(param_type)
             json_type = "string"
             if param_type in (int, float):
                 json_type = "number" if param_type is float else "integer"
             elif param_type is bool:
                 json_type = "boolean"
-            elif param_type in (list, tuple) or getattr(param_type, "__origin__", None) in (list, tuple):
+            elif param_type in (list, tuple) or origin in (list, tuple):
                 json_type = "array"
-            elif param_type is dict or getattr(param_type, "__origin__", None) is dict:
+            elif param_type is dict or origin is dict:
                 json_type = "object"
 
             prop_schema: dict[str, Any] = {"type": json_type}
-            
-            # Extract doc from param if docstring follows google/sphinx format
+            if json_type == "array":
+                item_type = get_args(param_type)[0] if get_args(param_type) else str
+                prop_schema["items"] = {"type": "integer" if item_type is int else "string"}
+            if param.default is not inspect.Parameter.empty and param.default is not None:
+                prop_schema["default"] = param.default
             properties[param_name] = prop_schema
 
             if param.default is inspect.Parameter.empty:
@@ -55,6 +65,7 @@ class ToolRegistry:
             "type": "object",
             "properties": properties,
             "required": required,
+            "additionalProperties": False,
         }
 
         self._tools[fn_name] = ToolDefinition(

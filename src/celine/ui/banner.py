@@ -40,7 +40,7 @@ def render_welcome_tips(console: Console) -> None:
         f"  [{COLORS['overlay']}]atalhos[/]  "
         f"[{COLORS['pink']}]/help[/]  [{COLORS['pink']}]/model[/]  "
         f"[{COLORS['pink']}]/provider[/]  [{COLORS['pink']}]/session[/]  "
-        f"[{COLORS['pink']}]/memory[/]  [{COLORS['pink']}]/retry[/]  "
+        f"[{COLORS['pink']}]/memory[/]  [{COLORS['pink']}]/approvals[/]  [{COLORS['pink']}]/retry[/]  "
         f"[{COLORS['pink']}]/exit[/]"
     )
     console.print(tips)

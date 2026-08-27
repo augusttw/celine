@@ -155,6 +155,7 @@ class ModelConfig:
     provider: str = "openai-codex"
     base_url: str = "https://chatgpt.com/backend-api/codex"
     temperature: float = 0.7
+    fallbacks: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -251,6 +252,9 @@ class CelineConfig:
                 provider=provider,
                 base_url=base_url,
                 temperature=float(model_dict.get("temperature", 0.7)),
+                fallbacks=[str(item) for item in model_dict.get("fallbacks", [])]
+                if isinstance(model_dict.get("fallbacks", []), list)
+                else [],
             ),
             voice=VoiceConfig(
                 enabled=voice_enabled,
@@ -290,6 +294,7 @@ class CelineConfig:
                     "provider": self.model.provider,
                     "base_url": self.model.base_url,
                     "temperature": self.model.temperature,
+                    "fallbacks": self.model.fallbacks,
                 },
                 "voice": {
                     "enabled": self.voice.enabled,

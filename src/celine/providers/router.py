@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from celine.config import KNOWN_PROVIDER_PRESETS, CelineConfig
+from celine.config import KNOWN_PROVIDER_MODELS, KNOWN_PROVIDER_PRESETS, CelineConfig
 from celine.providers.auth import AuthResolver
 from celine.providers.base import BaseProvider
 from celine.providers.openai_provider import OpenAIProvider
@@ -19,6 +19,19 @@ class MissingApiKeyError(RuntimeError):
 
 
 class ProviderRouter:
+    @staticmethod
+    def fallback_models(config: CelineConfig, limit: int = 3) -> list[str]:
+        configured = [str(model).strip() for model in config.model.fallbacks if str(model).strip()]
+        known = [model for model, _ in KNOWN_PROVIDER_MODELS.get(config.model.provider.casefold(), [])]
+        custom: list[str] = []
+        for provider in config.custom_providers:
+            if provider.name.casefold() == config.model.provider.casefold():
+                custom.extend(provider.models)
+                if provider.model:
+                    custom.insert(0, provider.model)
+        ordered = list(dict.fromkeys([*configured, *custom, *known]))
+        return [model for model in ordered if model != config.model.default][: max(0, int(limit))]
+
     @staticmethod
     def get_provider(
         config: CelineConfig,

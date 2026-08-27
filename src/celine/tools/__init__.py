@@ -7,6 +7,7 @@ from celine.tools.files import (
     read_file,
     write_file,
 )
+from celine.tools.companion import celine_presence, celine_pulse, celine_relationship
 from celine.tools.memory_tools import forget, remember, update_user_profile, view_memories
 from celine.tools.registry import registry, tool
 from celine.tools.skills_tools import list_skills, read_skill
@@ -18,6 +19,9 @@ __all__ = [
     "registry",
     "tool",
     "bash",
+    "celine_relationship",
+    "celine_pulse",
+    "celine_presence",
     "read_file",
     "write_file",
     "edit_file",
