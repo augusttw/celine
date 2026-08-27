@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import platform
 import shutil
+import subprocess
 import time
 from datetime import datetime
 from pathlib import Path
@@ -10,6 +11,74 @@ from pathlib import Path
 import psutil
 
 from celine.tools.registry import tool
+
+
+def _get_notification_env() -> dict[str, str] | None:
+    env = os.environ.copy()
+    if env.get("DBUS_SESSION_BUS_ADDRESS"):
+        return env
+    if os.name != "posix" or not hasattr(os, "getuid"):
+        return None
+    runtime = Path(f"/run/user/{os.getuid()}")
+    bus = runtime / "bus"
+    if not bus.is_socket():
+        return None
+    env["DBUS_SESSION_BUS_ADDRESS"] = f"unix:path={bus}"
+    env.setdefault("XDG_RUNTIME_DIR", str(runtime))
+    return env
+
+
+@tool(
+    name="desktop_notify",
+    description="Envia uma notificação visual no desktop (Sway/Wayland) via notify-send com nome do app Celine.",
+)
+def desktop_notify(title: str = "Celine", message: str = "", urgency: str = "normal") -> str:
+    """Envia uma notificação desktop no Wayland/Sway.
+
+    Args:
+        title: Título da notificação (ex: 'Celine', 'Build concluído').
+        message: Conteúdo da notificação.
+        urgency: Nível de urgência: 'low', 'normal', 'critical'.
+    """
+    clean_title = " ".join(str(title).split()).strip() or "Celine"
+    clean_message = " ".join(str(message).split()).strip()
+
+    if not clean_message:
+        return "Erro: mensagem de notificação não pode ser vazia."
+
+    binary = shutil.which("notify-send")
+    if not binary:
+        return "Erro: utilitário 'notify-send' não encontrado no PATH do sistema."
+
+    env = _get_notification_env()
+    if env is None:
+        return "Erro: barramento D-Bus / XDG_RUNTIME_DIR indisponível para envio de notificações."
+
+    valid_urgencies = {"low", "normal", "critical"}
+    urg = urgency if urgency in valid_urgencies else "normal"
+
+    try:
+        process = subprocess.run(
+            [
+                binary,
+                "--app-name=Celine",
+                "--icon=dialog-information",
+                f"--urgency={urg}",
+                clean_title,
+                clean_message,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=env,
+        )
+        if process.returncode != 0:
+            err = (process.stderr or process.stdout).strip() or "Falha no notify-send."
+            return f"Erro ao enviar notificação: {err}"
+
+        return f"Notificação enviada no desktop com sucesso: '{clean_title}'"
+    except Exception as exc:
+        return f"Erro ao executar notify-send: {exc}"
 
 
 @tool(

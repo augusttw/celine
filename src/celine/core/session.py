@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 import uuid
+import re
 from datetime import datetime
 from typing import Any
 
@@ -149,6 +150,39 @@ class SessionManager:
             messages.append(msg)
 
         return messages
+
+    def search_context(self, query: str, active_session_id: str, limit: int = 6) -> list[dict[str, str]]:
+        """Find useful older conversation snippets without exposing tool payloads."""
+        terms = [term.casefold() for term in re.findall(r"[\wÀ-ÿ]{4,}", query) if term.casefold() not in {
+            "isso", "essa", "esse", "aquela", "aquele", "sobre", "para", "com", "como", "quando"
+        }]
+        if not terms:
+            return []
+        with sqlite3.connect(DB_PATH) as db:
+            rows = db.execute(
+                """SELECT h.session_id, h.role, h.content, h.created_at, s.title
+                   FROM chat_history h JOIN sessions s ON s.id = h.session_id
+                   WHERE h.session_id != ? AND h.role IN ('user', 'assistant')
+                   ORDER BY h.id DESC LIMIT 500""",
+                (active_session_id,),
+            ).fetchall()
+        matches: list[tuple[int, tuple[Any, ...]]] = []
+        for row in rows:
+            content = (row[2] or "").strip()
+            lowered = content.casefold()
+            score = sum(lowered.count(term) for term in terms)
+            if score:
+                matches.append((score, row))
+        matches.sort(key=lambda item: (item[0], item[1][3]), reverse=True)
+        return [
+            {
+                "session_id": str(row[0]),
+                "title": str(row[4] or "Conversa anterior"),
+                "role": str(row[1]),
+                "content": " ".join(str(row[2]).split())[:500],
+            }
+            for _, row in matches[: max(1, min(limit, 20))]
+        ]
 
     def clear_session(self, session_id: str) -> None:
         with sqlite3.connect(DB_PATH) as db:

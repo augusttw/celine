@@ -21,7 +21,10 @@ def remember(fact: str, category: str = "general", consent: bool = False) -> str
     if not consent:
         return "Sem consentimento explícito: pergunte ao usuário se ele quer que esta informação seja lembrada."
 
-    success = memory_manager.add_memory(fact.strip(), category=category)
+    try:
+        success = memory_manager.add_memory(fact.strip(), category=category)
+    except ValueError as exc:
+        return f"Não foi possível salvar a memória: {exc}"
     if success:
         return f"Memória guardada com carinho: \"{fact.strip()}\""
     return "Não foi possível salvar a memória."
@@ -65,16 +68,22 @@ def view_memories(limit: int = 25) -> str:
 
 @tool(
     name="update_user_profile",
-    description="Atualiza ou adiciona informações ao perfil estruturado do usuário (USER.md) como stack, ambiente ou preferências gerais.",
+    description="Atualiza o perfil do usuário somente após consentimento explícito.",
 )
-def update_user_profile(fact: str) -> str:
+def update_user_profile(fact: str, consent: bool = False) -> str:
     """Adiciona um fato ao perfil do usuário (USER.md).
 
     Args:
         fact: Informação a ser adicionada ao perfil do usuário.
+        consent: Deve ser true somente quando o usuário autorizou guardar esta informação.
     """
     if not fact.strip():
         return "Informação vazia."
 
-    memory_manager.append_to_user_profile(fact.strip())
+    if not consent:
+        return "Sem consentimento explícito: pergunte ao usuário se ele quer que eu guarde essa informação no perfil."
+    try:
+        memory_manager.append_to_user_profile(fact.strip())
+    except ValueError as exc:
+        return f"Não foi possível atualizar o perfil: {exc}"
     return f"Perfil do usuário atualizado com: \"{fact.strip()}\""

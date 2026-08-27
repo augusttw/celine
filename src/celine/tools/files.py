@@ -232,3 +232,71 @@ def grep_search(query: str, path: str = ".", is_regex: bool = False, max_results
     if not results:
         return f"Nenhuma correspondência encontrada para '{query}' em {root}."
     return "\n".join(results)
+
+
+@tool(
+    name="git_status_and_diff",
+    description="Inspeciona o status e as alterações recentes (diff) do repositório Git no diretório especificado.",
+)
+def git_status_and_diff(path: str = ".", max_diff_lines: int = 150) -> str:
+    """Retorna o git status e o git diff do repositório.
+
+    Args:
+        path: Caminho da pasta do repositório.
+        max_diff_lines: Limite de linhas do diff retornado.
+    """
+    root = _resolve_path(path)
+    if not root.exists():
+        return f"Pasta não encontrada: {root}"
+
+    import subprocess
+
+    try:
+        status_proc = subprocess.run(
+            ["git", "status", "--short", "--branch"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if status_proc.returncode != 0:
+            return f"Não é um repositório git ou erro ao executar git: {status_proc.stderr.strip()}"
+
+        diff_proc = subprocess.run(
+            ["git", "diff", "--stat"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        diff_detail = subprocess.run(
+            ["git", "diff"],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        diff_lines = diff_detail.stdout.splitlines()
+        truncated = False
+        if len(diff_lines) > max_diff_lines:
+            diff_text = "\n".join(diff_lines[:max_diff_lines]) + f"\n\n[... diff truncado em {max_diff_lines} linhas ...]"
+        else:
+            diff_text = "\n".join(diff_lines)
+
+        output = [
+            f"### Git Status ({root}):",
+            status_proc.stdout.strip() or "(working tree clean)",
+            "",
+            "### Resumo de Modificações (diff --stat):",
+            diff_proc.stdout.strip() or "(nenhuma alteração pendente)",
+        ]
+
+        if diff_text.strip():
+            output.extend(["", "### Diff Detalhado:", diff_text])
+
+        return "\n".join(output)
+    except Exception as exc:
+        return f"Erro ao inspecionar git: {exc}"
+
